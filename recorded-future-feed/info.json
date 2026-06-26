@@ -1,0 +1,494 @@
+{
+  "name": "recorded-future-feed",
+  "label": "Recorded Future Threat Intel Feed",
+  "description": "Recorded Future Threat Intel Feed connector ingests indicators (IP, Domain, URL, Hash, Vulnerability) from the Recorded Future Connect API risklists and supports on-demand reputation lookups. Authentication uses an X-RFToken API token. \u003cbr/\u003e\u003cbr/\u003eThis connector has a dependency on the \u003ca href\u003d\"/content-hub/all-content/?contentType\u003dsolutionpack\u0026amp;tag\u003dThreatIntelManagement\" target\u003d\"_blank\" rel\u003d\"noopener\"\u003eThreat Intel Management Solution Pack\u003c/a\u003e. Install the Solution Pack before enabling ingestion.",
+  "publisher": "Fortinet",
+  "contributor": "Dylan Spille",
+  "cs_approved": false,
+  "cs_compatible": true,
+  "version": "1.0.0",
+  "category": "Threat Intelligence",
+  "icon_small_name": "small.png",
+  "icon_large_name": "large.png",
+  "ingestion_supported": true,
+  "ingestion_modes": [
+    "scheduled"
+  ],
+  "tags": [
+    "ThreatIntel",
+    "ThreatFeedsIngestion"
+  ],
+  "help_online": "",
+  "ingestion_config_schema": [
+    {
+      "title": "Indicator Type",
+      "name": "indicator_type",
+      "type": "select",
+      "required": true,
+      "editable": true,
+      "visible": true,
+      "options": [
+        "ip",
+        "domain",
+        "url",
+        "hash",
+        "vulnerability"
+      ],
+      "value": "ip",
+      "tooltip": "Recorded Future risklist to pull on each scheduled ingestion run."
+    },
+    {
+      "title": "Risk Rule (Optional)",
+      "name": "risk_rule",
+      "type": "text",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "tooltip": "Optional Recorded Future risk rule name (e.g. \u0027cyberAttack\u0027, \u0027historicalThreatListMembership\u0027). Leave blank to use the default master risklist for the chosen indicator type. Use the \u0027Get Risk Rules\u0027 action to discover valid rule names."
+    },
+    {
+      "title": "Reputation",
+      "name": "reputation",
+      "type": "select",
+      "required": true,
+      "editable": true,
+      "visible": true,
+      "options": [
+        "Good",
+        "Suspicious",
+        "Malicious",
+        "No Reputation Available",
+        "TBD"
+      ],
+      "value": "Suspicious",
+      "tooltip": "Default reputation applied to ingested indicators."
+    },
+    {
+      "title": "TLP",
+      "name": "tlp",
+      "type": "select",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "options": [
+        "Red",
+        "Amber",
+        "Green",
+        "White"
+      ],
+      "value": "Amber",
+      "tooltip": "Default TLP marking applied to ingested indicators."
+    },
+    {
+      "title": "Confidence",
+      "name": "confidence",
+      "type": "integer",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "value": 75,
+      "validation": {
+        "minlength": 0,
+        "maxlength": 100
+      },
+      "tooltip": "Default confidence score applied when the feed record does not carry one."
+    },
+    {
+      "title": "Maximum Age (in days)",
+      "name": "expiry",
+      "type": "integer",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "value": 30,
+      "tooltip": "Indicator expiry in days from ingestion time."
+    },
+    {
+      "title": "Per-Run Limit (Optional)",
+      "name": "limit",
+      "type": "integer",
+      "required": false,
+      "editable": true,
+      "visible": true,
+      "tooltip": "Optional cap on indicators ingested per run. Leave blank to ingest the full risklist."
+    }
+  ],
+  "ingest_mapping_template": {
+    "value": "{{ vars.value }}",
+    "type_of_feed": "{{ vars.type }}",
+    "source": "Recorded Future",
+    "source_id": "{{ vars.value }}",
+    "reputation": "{% if vars.reputation %}{{ vars.reputation }}{% endif %}",
+    "tlp": "{% if vars.tlp %}{{ vars.tlp }}{% endif %}",
+    "confidence": "{% if vars.confidence %}{{ vars.confidence }}{% else %}{{ vars.score * 33 }}{% endif %}",
+    "description": "{% if vars.risk_string %}Recorded Future: {{ vars.risk_string }}{% else %}Recorded Future indicator{% endif %}",
+    "created_on": "{{ epoch_to_datetime(arrow.utcnow().int_timestamp) }}",
+    "modified_on": "{{ epoch_to_datetime(arrow.utcnow().int_timestamp) }}",
+    "valid_from": "{{ epoch_to_datetime(arrow.utcnow().int_timestamp) }}",
+    "valid_until": "{% if vars.expiry %}{{ epoch_to_datetime(arrow.utcnow().int_timestamp + (vars.expiry | int)*24*60*60) }}{% else %}None{% endif %}",
+    "expires_on": "{% if vars.expiry %}{{ epoch_to_datetime(arrow.utcnow().int_timestamp + (vars.expiry | int)*24*60*60) }}{% else %}None{% endif %}",
+    "sourceData": "{{ vars | toJSON }}",
+    "__replace": ""
+  },
+  "configuration": {
+    "fields": [
+      {
+        "title": "Base URL",
+        "name": "base_url",
+        "type": "text",
+        "required": false,
+        "editable": true,
+        "visible": true,
+        "value": "https://api.recordedfuture.com/v2/",
+        "placeholder": "https://api.recordedfuture.com/v2/",
+        "description": "Specify the Recorded Future Connect API base URL. Override this value only if you are using a regional API endpoint.",
+        "tooltip": "Specify the Recorded Future Connect API base URL. Override this value only if you are using a regional API endpoint.",
+        "isOnChange": false
+      },
+      {
+        "title": "API Token",
+        "name": "api_token",
+        "type": "password",
+        "required": true,
+        "editable": true,
+        "visible": true,
+        "description": "Specify the Recorded Future API token. This token is sent as the X-RFToken header with every API request.",
+        "tooltip": "Specify the Recorded Future API token. This token is sent as the X-RFToken header with every API request.",
+        "isOnChange": false
+      },
+      {
+        "title": "Malicious Threshold",
+        "name": "malicious_threshold",
+        "type": "integer",
+        "required": false,
+        "editable": true,
+        "visible": true,
+        "value": 65,
+        "validation": {
+          "minlength": 1,
+          "maxlength": 100
+        },
+        "tooltip": "Specify the risk score threshold at or above which an indicator is classified as Malicious. Accepted values range from 1 to 100, with a default value set as 65.",
+        "description": "Specify the risk score threshold at or above which an indicator is classified as Malicious. Accepted values range from 1 to 100, with a default value set as 65.",
+        "isOnChange": false
+      },
+      {
+        "title": "Suspicious Threshold",
+        "name": "suspicious_threshold",
+        "type": "integer",
+        "required": false,
+        "editable": true,
+        "visible": true,
+        "value": 25,
+        "validation": {
+          "minlength": 1,
+          "maxlength": 100
+        },
+        "tooltip": "Specify the risk score threshold at or above which an indicator is classified as Suspicious. The value must be lower than the Malicious Threshold. Accepted values range from 1 to 100, with a default value set as 25.",
+        "description": "Specify the risk score threshold at or above which an indicator is classified as Suspicious. The value must be lower than the Malicious Threshold. Accepted values range from 1 to 100, with a default value set as 25.",
+        "isOnChange": false
+      },
+      {
+        "title": "Request Timeout (seconds)",
+        "name": "timeout",
+        "type": "integer",
+        "required": false,
+        "editable": true,
+        "visible": true,
+        "value": 60,
+        "tooltip": "Specify the HTTP request timeout duration in seconds. It will wait for the configured time before terminating the request.",
+        "description": "Specify the HTTP request timeout duration in seconds. It will wait for the configured time before terminating the request.",
+        "isOnChange": false
+      },
+      {
+        "title": "Verify SSL",
+        "name": "verify_ssl",
+        "type": "checkbox",
+        "required": false,
+        "editable": true,
+        "visible": true,
+        "value": true,
+        "description": "Specifies whether the SSL certificate for the server is to be verified. By default, this option is set to True.",
+        "tooltip": "Specifies whether the SSL certificate for the server is to be verified. By default, this option is set to True.",
+        "isOnChange": false
+      }
+    ]
+  },
+  "operations": [
+    {
+      "operation": "fetch_indicators",
+      "title": "Fetch Indicators",
+      "description": "Fetch indicators of the specified type from the Recorded Future risklist. This action can be used for both scheduled data ingestion and on-demand retrieval.",
+      "category": "investigation",
+      "annotation": "fetch_indicators",
+      "enabled": true,
+      "parameters": [
+        {
+          "title": "Indicator Type",
+          "name": "indicator_type",
+          "type": "select",
+          "options": [
+            "ip",
+            "domain",
+            "url",
+            "hash",
+            "vulnerability"
+          ],
+          "value": "ip",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the indicator type to fetch from the Recorded Future risklist. Supported values are IP, Domain, URL, Hash, and Vulnerability.",
+          "description": "Specify the indicator type to fetch from the Recorded Future risklist. Supported values are IP, Domain, URL, Hash, and Vulnerability."
+        },
+        {
+          "title": "Risk Rule",
+          "name": "risk_rule",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the optional risk rule name to filter indicators from a specific Recorded Future risklist. Leave this field blank to use the default master risklist for the selected indicator type.",
+          "description": "Specify the optional risk rule name to filter indicators from a specific Recorded Future risklist. Leave this field blank to use the default master risklist for the selected indicator type."
+        },
+        {
+          "title": "Limit",
+          "name": "limit",
+          "type": "integer",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the maximum number of indicators to return. Leave this field blank to fetch all available indicators without any limit.",
+          "description": "Specify the maximum number of indicators to return. Leave this field blank to fetch all available indicators without any limit."
+        }
+      ],
+      "output_schema": {
+        "indicators": [
+          {
+            "value": "",
+            "type": "",
+            "risk": "",
+            "risk_string": "",
+            "score": "",
+            "evidence_details": [],
+            "source": "",
+            "risk_rule": "",
+            "raw": {}
+          }
+        ],
+        "count": "",
+        "truncated": ""
+      }
+    },
+    {
+      "operation": "get_risk_rules",
+      "title": "Get Risk Rules",
+      "description": "Retrieve the list of available risk rules for the specified indicator type.",
+      "category": "investigation",
+      "annotation": "get_risk_rules",
+      "enabled": true,
+      "parameters": [
+        {
+          "title": "Indicator Type",
+          "description": "Specify the indicator type for which to retrieve available risk rules. Supported values are IP, Domain, URL, Hash, and Vulnerability.",
+          "name": "indicator_type",
+          "type": "select",
+          "options": [
+            "ip",
+            "domain",
+            "url",
+            "hash",
+            "vulnerability"
+          ],
+          "value": "ip",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the indicator type for which to retrieve available risk rules. Supported values are IP, Domain, URL, Hash, and Vulnerability."
+        }
+      ],
+      "output_schema": {
+        "data": {
+          "results": [
+            {
+              "name": "",
+              "description": "",
+              "criticalityLabel": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "lookup_ip",
+      "title": "Lookup IP",
+      "description": "Perform an on-demand reputation lookup for the specified IP address and retrieve associated threat intelligence details from Recorded Future.",
+      "category": "investigation",
+      "annotation": "lookup_ip",
+      "enabled": true,
+      "parameters": [
+        {
+          "title": "IP Address",
+          "description": "Specify the IP address to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future.",
+          "name": "ip",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the IP address to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future."
+        },
+        {
+          "title": "Fields",
+          "name": "fields",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": "risk,intelCard,timestamps,counts,sightings",
+          "description": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings.",
+          "tooltip": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings."
+        }
+      ],
+      "output_schema": {
+        "data": {}
+      }
+    },
+    {
+      "operation": "lookup_domain",
+      "title": "Lookup Domain",
+      "description": "Perform an on-demand reputation lookup for the specified domain and retrieve associated threat intelligence details from Recorded Future.",
+      "category": "investigation",
+      "annotation": "lookup_domain",
+      "enabled": true,
+      "parameters": [
+        {
+          "title": "Domain",
+          "description": "Specify the domain to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future.",
+          "name": "domain",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the domain to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future."
+        },
+        {
+          "title": "Fields",
+          "description": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings.",
+          "name": "fields",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": "risk,intelCard,timestamps,counts,sightings",
+          "tooltip": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings."
+        }
+      ],
+      "output_schema": {
+        "data": {}
+      }
+    },
+    {
+      "operation": "lookup_url",
+      "title": "Lookup URL",
+      "description": "Perform an on-demand reputation lookup for the specified URL and retrieve associated threat intelligence details from Recorded Future.",
+      "category": "investigation",
+      "annotation": "lookup_url",
+      "enabled": true,
+      "parameters": [
+        {
+          "title": "URL",
+          "description": "Specify the URL to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future.",
+          "name": "url",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the URL to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future."
+        },
+        {
+          "title": "Fields",
+          "description": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings.",
+          "name": "fields",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": "risk,intelCard,timestamps,counts,sightings",
+          "tooltip": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings."
+        }
+      ],
+      "output_schema": {
+        "data": {}
+      }
+    },
+    {
+      "operation": "lookup_hash",
+      "title": "Lookup Hash",
+      "description": "Perform an on-demand reputation lookup for the specified file hash (MD5, SHA1, or SHA256) and retrieve associated threat intelligence details from Recorded Future.",
+      "category": "investigation",
+      "annotation": "lookup_hash",
+      "enabled": true,
+      "parameters": [
+        {
+          "title": "Hash",
+          "description": "Specify the file hash (MD5, SHA1, or SHA256) to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future.",
+          "name": "hash",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "tooltip": "Specify the file hash (MD5, SHA1, or SHA256) to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future."
+        },
+        {
+          "title": "Fields",
+          "description": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings.",
+          "name": "fields",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": "risk,intelCard,timestamps,counts,sightings",
+          "tooltip": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings."
+        }
+      ],
+      "output_schema": {
+        "data": {}
+      }
+    },
+    {
+      "operation": "lookup_vulnerability",
+      "title": "Lookup Vulnerability (CVE)",
+      "description": "Perform an on-demand reputation lookup for the specified CVE identifier and retrieve associated threat intelligence details from Recorded Future.",
+      "category": "investigation",
+      "annotation": "lookup_vulnerability",
+      "enabled": true,
+      "parameters": [
+        {
+          "title": "CVE",
+          "description": "Specify the CVE identifier to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future. Example: CVE-2024-12345.",
+          "name": "cve",
+          "type": "text",
+          "required": true,
+          "editable": true,
+          "visible": true,
+          "placeholder": "CVE-2024-12345",
+          "tooltip": "Specify the CVE identifier to perform an on-demand reputation lookup and retrieve threat intelligence details from Recorded Future. Example: CVE-2024-12345."
+        },
+        {
+          "title": "Fields",
+          "description": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings.",
+          "name": "fields",
+          "type": "text",
+          "required": false,
+          "editable": true,
+          "visible": true,
+          "value": "risk,intelCard,timestamps,counts,sightings",
+          "tooltip": "Specify a comma-separated list of Recorded Future fields to include in the response. Leave blank to use the default fields: risk, intelCard, timestamps, counts, sightings."
+        }
+      ],
+      "output_schema": {
+        "data": {}
+      }
+    }
+  ]
+}
